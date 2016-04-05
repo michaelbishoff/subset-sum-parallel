@@ -1,4 +1,6 @@
 #include <stdio.h>
+#include <omp.h>
+#include <time.h>
 
 /* Assume we are reading in file with a single integer on each line and the
    integers are in sorted order
@@ -17,16 +19,23 @@ void reconstructSolution(int I[], int Q[][numCols], int numRows, int target);
 int main() {
   int I[] = {-5, 0, 1, 4, 7};
   int numRows = 5;
+  // Determines the number of columns needed in the Q table
   numCols = getNumColumns(I, numRows);
 
   int Q[numRows][numCols];
   clearQMatrix(Q, numRows);
 
-
+  // The target value
   int target = 0;
 
+  // double startTime = omp_get_wtime();
+  clock_t startTime = clock();
+  int solutionExists = findSolution(I, Q, numRows, target);
+  // double endTime = omp_get_wtime();
+  clock_t endTime = clock();
 
-  if (findSolution(I, Q, numRows, target)) {
+  // If there's a solution, print it
+  if (solutionExists) {
     printPretty(I, Q, numRows);
     reconstructSolution(I, Q, numRows, target);
 
@@ -34,7 +43,7 @@ int main() {
     printf("NO SOUTION EXISTS!\n");
   }
 
-
+  printf("Time to run: %f\n", (endTime - startTime));
   
   return 0;
 }
@@ -132,6 +141,13 @@ void printPretty(int I[], int Q[][numCols], int numRows) {
 }
 
 int findSolution(int I[], int Q[][numCols], int numRows, int target) {
+
+  // If the target is less than the lowest possible value or higher
+  // than the largests possible value, return false
+  if (target < offset || target >= numCols + offset) {
+    return 0;
+  }
+
   // Initializes the frist row's value
   Q[0][I[0] - offset] = 1;
 
@@ -139,6 +155,8 @@ int findSolution(int I[], int Q[][numCols], int numRows, int target) {
   if (I[0] == target) {
     return 1;
   }
+
+  int targetFound = 0;
 
   // Loop through I[]
   for (int prevRow = 0, row = 1; row < numRows; row++, prevRow++) {
@@ -151,7 +169,9 @@ int findSolution(int I[], int Q[][numCols], int numRows, int target) {
     }
 
     // Sets this row's values
+    #pragma omp parallel for
     for (int col = 0; col < numCols; col++) {
+
       // If there's a 1 in the row above the current row
       if (Q[prevRow][col]) {
         // Copy the 1 to this row because that value is
@@ -166,9 +186,14 @@ int findSolution(int I[], int Q[][numCols], int numRows, int target) {
         // If we just placed a 1 in the column that corresponds to
         // the number that we are looking for, return true
         if (newValidSumIndex + offset == target) {
-          return 1;
+          targetFound = 1;
+          // return 1;
         }
       }
+    }
+
+    if (targetFound) {
+      return 1;
     }
 
     // Set's this I[i]'s value as valid in the Q table
