@@ -1,61 +1,90 @@
 #include <stdio.h>
 #include <omp.h>
 #include <time.h>
+#include <stdlib.h>
+#include <string.h>
+
+#define NUM_TARGETS 30
 
 /* Assume we are reading in file with a single integer on each line and the
    integers are in sorted order
 */
 
-int offset;
-int numCols;
+// offset is set in getNumColumns()
+// numCols is set when we return from getNumColumns()
+// numRows is set in readSet()
+int offset, numCols, numRows;
 
-int getNumColumns();
-void clearQMatrix(int Q[][numCols], int numRows);
-void printQ(int Q[][numCols], int numRows);
-void printPretty(int I[], int Q[][numCols], int numRows);
-int findSolution(int I[], int Q[][numCols], int numRows, int target);
-void reconstructSolution(int I[], int Q[][numCols], int numRows, int target);
+int getNumColumns(int* I);
+void clearQMatrix(int** Q);
+void printQ(int** Q);
+void printPretty(int* I, int** Q);
+int findSolution(int* I, int** Q, int target);
+void reconstructSolution(int* I, int** Q, int target);
 
-int main() {
-  int I[] = {-5, 0, 1, 4, 7};
-  int numRows = 5;
+int* readSet(char *filename);
+int* readTargets(char *filename);
+
+/**
+ * ./proj1 set_I_filename targets_filename
+ */
+int main(int argc, char* argv[]) {
+  if (argc != 3) {
+    printf("ERROR: Command line arguments are <set_I_filename> <targets_filename>");
+    return 1;
+  }
+  
+  
+  int* I = readSet(argv[1]);
+  int* targets = readTargets(argv[2]);
+  
   // Determines the number of columns needed in the Q table
-  numCols = getNumColumns(I, numRows);
+  numCols = getNumColumns(I);
 
-  int Q[numRows][numCols];
-  clearQMatrix(Q, numRows);
-
-  // The target value
-  int target = 0;
-
-  // double startTime = omp_get_wtime();
-  clock_t startTime = clock();
-  int solutionExists = findSolution(I, Q, numRows, target);
-  // double endTime = omp_get_wtime();
-  clock_t endTime = clock();
-
-  // If there's a solution, print it
-  if (solutionExists) {
-    printPretty(I, Q, numRows);
-    reconstructSolution(I, Q, numRows, target);
-
-  } else {
-    printf("NO SOUTION EXISTS!\n");
+  //  int Q[numRows][numCols];
+  int** Q = malloc(sizeof(int*)*numRows);
+  for (int i = 0; i < numRows; i++) {
+    Q[i] = malloc(sizeof(int)*numCols);
   }
 
-  printf("Time to run: %f\n", (endTime - startTime));
+  
+
+  for (int i = 0; i < NUM_TARGETS; i++) {
+    clearQMatrix(Q);
+    
+    // double startTime = omp_get_wtime();
+    clock_t startTime = clock();
+    int solutionExists = findSolution(I, Q, targets[i]);
+    // double endTime = omp_get_wtime();
+    clock_t endTime = clock();
+    
+    printf("%d: ", targets[i]);
+    // If there's a solution, print it
+    if (solutionExists) {
+      //printPretty(I, Q);
+      reconstructSolution(I, Q, targets[i]);
+      
+    } else {
+      printf("NO SOUTION EXISTS! ");
+    }
+    
+    printf("Time: %lu\n\n", (endTime - startTime));
+  }
+  
+  free(I);
+  free(Q);
   
   return 0;
 }
 
 
-int getNumColumns(int I[], int size) {
+int getNumColumns(int* I) {
   // Finds the highest and lowest possible values that can be reached
   int maxSum = 0, minSum = 0;
   // Used to check if the number zero is in the array
   int hasZero = 0;
 
-  for (int i = 0; i < size; i++) {
+  for (int i = 0; i < numRows; i++) {
     if (I[i] < 0) {
       minSum += I[i];
 
@@ -101,17 +130,24 @@ int getNumColumns(int I[], int size) {
   return (-1 * minSum) + maxSum + hasZero;
 }
 
+void clearQMatrix(int** Q) {
+  // row is shared by the outer loop. col is shared by the inner loop.
+  // but each outer loop has it's own col
+  // variables definied in the parallel statement aren't shared
+  int row = 0;
 
-void clearQMatrix(int Q[][numCols], int numRows) {
+  #pragma omp parallel for
+  for (row = 0; row < numRows; row++) {
+    int col = 0;
 
-  for (int row = 0; row < numRows; row++) {
-    for (int col = 0; col < numCols; col++) {
+    #pragma omp parallel for
+    for (col = 0; col < numCols; col++) {
       Q[row][col] = 0;
     }
   }
 }
 
-void printQ(int Q[][numCols], int numRows) {
+void printQ(int** Q) {
   for (int row = 0; row < numRows; row++) {
     for (int col = 0; col < numCols; col++) {
       printf("Q[%d][%d] = %d\n", row, col, Q[row][col]);
@@ -119,7 +155,7 @@ void printQ(int Q[][numCols], int numRows) {
   }
 }
 
-void printPretty(int I[], int Q[][numCols], int numRows) {
+void printPretty(int* I, int** Q) {
   printf("    ");
   // Prints out the column header
   int maxNum = numCols + offset; // Converts 18 to 13 in the example
@@ -140,7 +176,7 @@ void printPretty(int I[], int Q[][numCols], int numRows) {
   printf("\n");
 }
 
-int findSolution(int I[], int Q[][numCols], int numRows, int target) {
+int findSolution(int* I, int** Q, int target) {
 
   // If the target is less than the lowest possible value or higher
   // than the largests possible value, return false
@@ -169,8 +205,10 @@ int findSolution(int I[], int Q[][numCols], int numRows, int target) {
     }
 
     // Sets this row's values
+    // Each thread shares col, so define it before the statement.
+    int col = 0;
     #pragma omp parallel for
-    for (int col = 0; col < numCols; col++) {
+    for (col = 0; col < numCols; col++) {
 
       // If there's a 1 in the row above the current row
       if (Q[prevRow][col]) {
@@ -206,28 +244,42 @@ int findSolution(int I[], int Q[][numCols], int numRows, int target) {
 /**
  * Precondition: There is guarenteed solution and a constructed Q table.
  */
-void reconstructSolution(int I[], int Q[][numCols], int numRows, int target) {
+void reconstructSolution(int* I, int** Q, int target) {
   int targetCol = target - offset;
+  int row = numRows;
 
   // Skip the rows that weren't used in the solution
   // numRows is out of bounds, so decrement
   // Each iteration also needs to decrement, so we're good! :)
-  while (Q[--numRows][targetCol] == 0) { }
+  while (Q[--row][targetCol] == 0) { }
 
   // if the target was in I[]
-  if (target == I[numRows]) {
-    printf("%d ", I[numRows]);
+  if (target == I[row]) {
+    printf("%d ", I[row]);
 
     // the target was constructed from I[]
   } else {
-    // while we're not out of bounds and the row has a 1 in it
-    while (numRows >= 0 && targetCol >= 0 && Q[numRows][targetCol]) {
-      printf("%d ", I[numRows]);
+    // Keep track of the sum to avoid conditions where the target is zero
+    int sum = 0;
+
+    // do-while because if the target is 0, then sum == target
+    // and also because we know there is at least one value in the subset
+    do {
+
+      // Skip the rows that weren't used in the solution
+      while (row - 1 >= 0 && Q[row - 1][targetCol] == 1) { row--; }
+
+      printf("%d ", I[row]);
 
       // Moves the target column to be a part of the sum that made the target
-      targetCol -= I[numRows];
-      numRows--;
-    }
+      targetCol -= I[row];
+      sum += I[row];
+      row--;
+      //      printf("sum = %d, target = %d\n", sum, target);
+      
+    // while we're not out of bounds and the row has a 1 in it
+    } while (sum != target && row >= 0 && targetCol >= 0 && Q[row][targetCol]);
+
   }
   printf("\n");
 }
@@ -237,3 +289,42 @@ void reconstructSolution(int I[], int Q[][numCols], int numRows, int target) {
 
 
 
+
+
+
+
+
+
+/* File IO Functions */
+
+int* readSet(char *filename) {
+  FILE* fp = fopen(filename, "r");
+  
+  // Reads the number of rows in the file
+  int* numRowsPtr = malloc(sizeof(int));
+  fscanf(fp, "%d", numRowsPtr);
+  
+  // Stores the value read in as a global int
+  numRows = *numRowsPtr;
+  free(numRowsPtr);
+
+  // Creates the I[] of values in our set
+  int* I = (int*) malloc(sizeof(int) * numRows);
+  for (int i = 0; i < numRows; i++) {
+    fscanf(fp, "%d", (I+i));
+  }
+
+  return I;
+}
+
+int* readTargets(char *filename) {
+  FILE* fp = fopen(filename, "r");
+
+  int* targets = (int*) malloc(sizeof(int) * NUM_TARGETS);
+
+  for (int i = 0; i < NUM_TARGETS; i++) {
+    fscanf(fp, "%d", (targets+i));
+  }
+
+  return targets;
+}
