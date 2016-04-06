@@ -42,9 +42,9 @@ int main(int argc, char* argv[]) {
   numCols = getNumColumns(I);
 
   //  int Q[numRows][numCols];
-  int** Q = malloc(sizeof(int*)*numRows);
+  int** Q = malloc(sizeof(*Q)*numRows);
   for (int i = 0; i < numRows; i++) {
-    Q[i] = malloc(sizeof(int)*numCols);
+    Q[i] = malloc(sizeof(*(Q[i]))*numCols);
   }
 
   double totalTime = 0;
@@ -78,6 +78,10 @@ int main(int argc, char* argv[]) {
   printf("Total Time: %f\n", totalTime);
   
   free(I);
+
+  for (int i = 0; i < numRows; i++) {
+    free(Q[i]);
+  }
   free(Q);
   
   return 0;
