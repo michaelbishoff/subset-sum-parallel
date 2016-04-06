@@ -1,0 +1,5 @@
+generate_unique_ints(30,-153,153,"t_10.txt")
+generate_unique_ints(30,-13861,13861,"t_100.txt")
+generate_unique_ints(30,-1388611,1388611,"t_1000.txt")
+generate_unique_ints(30,-138886111,138886111,"t_10000.txt")
+generate_unique_ints(30,-13888861111,13888861111,"t_100000.txt")

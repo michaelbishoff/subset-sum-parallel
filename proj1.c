@@ -47,29 +47,35 @@ int main(int argc, char* argv[]) {
     Q[i] = malloc(sizeof(int)*numCols);
   }
 
-  
+  double totalTime = 0;
 
   for (int i = 0; i < NUM_TARGETS; i++) {
     clearQMatrix(Q);
     
-    // double startTime = omp_get_wtime();
-    clock_t startTime = clock();
+    double startTime = omp_get_wtime();
+    //clock_t startTime = clock();
     int solutionExists = findSolution(I, Q, targets[i]);
-    // double endTime = omp_get_wtime();
-    clock_t endTime = clock();
+    double endTime = omp_get_wtime();
+    //clock_t endTime = clock();
     
-    printf("%d: ", targets[i]);
+    totalTime += (double) (endTime - startTime);
+    
+    /*    printf("%d: ", targets[i]);
     // If there's a solution, print it
     if (solutionExists) {
       //printPretty(I, Q);
-      reconstructSolution(I, Q, targets[i]);
+      //reconstructSolution(I, Q, targets[i]);
       
     } else {
-      printf("NO SOUTION EXISTS! ");
+      //      printf("NO SOUTION EXISTS! ");
     }
     
-    printf("Time: %lu\n\n", (endTime - startTime));
+    //    printf("Time: %lu\n\n", (endTime - startTime));
+    */
   }
+
+  printf("Average Time: %f\n", (totalTime / NUM_TARGETS));
+  printf("Total Time: %f\n", totalTime);
   
   free(I);
   free(Q);

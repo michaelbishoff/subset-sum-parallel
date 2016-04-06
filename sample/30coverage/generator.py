@@ -1,0 +1,5 @@
+generate_unique_ints(10,-17,17, "10.txt")
+generate_unique_ints(100,-166,166, "100.txt")
+generate_unique_ints(1000,-1666,1666, "1000.txt")
+generate_unique_ints(10000,-16666,16666, "10000.txt")
+generate_unique_ints(100000,-166666,166666, "100000.txt")
