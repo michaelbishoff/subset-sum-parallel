@@ -14,6 +14,6 @@ gcc-5 proj1.c -fopenmp -o proj1
 ```
 
 ### Note
-OpenMP 2.5 exists in gcc >=4.2
-OpenMP 3.0 exists in gcc >=4.4
+OpenMP 2.5 exists in gcc >=4.2  
+OpenMP 3.0 exists in gcc >=4.4  
 OpenMP 4.0 exists in gcc >=4.9
