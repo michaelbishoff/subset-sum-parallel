@@ -6,10 +6,6 @@
 
 #define NUM_TARGETS 30
 
-/* Assume we are reading in file with a single integer on each line and the
-   integers are in sorted order
-*/
-
 // offset is set in getNumColumns()
 // numCols is set when we return from getNumColumns()
 // numRows is set in readSet()
@@ -17,7 +13,6 @@ int offset, numCols, numRows;
 
 int getNumColumns(int* I);
 void clearQMatrix(int** Q);
-void printQ(int** Q);
 void printPretty(int* I, int** Q);
 int findSolution(int* I, int** Q, int target);
 void reconstructSolution(int* I, int** Q, int target);
@@ -26,27 +21,44 @@ int* readSet(char *filename);
 int* readTargets(char *filename);
 
 /**
- * ./proj1 set_I_filename targets_filename
+ * Given a set of values, times how long it takes to find if a specified target
+ * value can be made by summing a subset of the given set of values.
+ * 
+ * Command line args:
+ * argv[1] - a file of numbers that are in our set of values. The first line of
+ *           the file is the number of values in the file.
+ * argv[2] - a file of 30 numbers that are the targets that we try to reach
+ *           with a subset of the values in argv[1]
+ * 
+ * Compile: gcc proj1.c -fopenmp -o proj1
+ * Run: ./proj1 set_I_filename targets_filename
+ *
+ * Authors: Gaurav Luthria <gluthr1@umbc.edu>
+ *          Rajan Patel <rajanp1@umbc.edu>
+ *          Michael Bishoff <bishoff1@umbc.edu>
  */
 int main(int argc, char* argv[]) {
+  // Check if command line args are valid
   if (argc != 3) {
-    printf("ERROR: Command line arguments are <set_I_filename> <targets_filename>");
+    printf("ERROR: Command line arguments are <set_I_filename> ");
+    printf("<targets_filename>\n");
     return 1;
   }
   
-  
+  // Initializes I, the set of values, and the list of targets that we use
+  // to see if a subset of I sums to the value of a target
   int* I = readSet(argv[1]);
   int* targets = readTargets(argv[2]);
   
   // Determines the number of columns needed in the Q table
   numCols = getNumColumns(I);
 
-  //  int Q[numRows][numCols];
+  // Allocates space for the Q table
   int** Q = malloc(sizeof(*Q)*numRows);
   for (int i = 0; i < numRows; i++) {
     Q[i] = malloc(sizeof(*(Q[i]))*numCols);
   }
-
+  
   double totalTime = 0;
 
   for (int i = 0; i < NUM_TARGETS; i++) {
@@ -60,23 +72,26 @@ int main(int argc, char* argv[]) {
     
     totalTime += (double) (endTime - startTime);
     
-    /*    printf("%d: ", targets[i]);
+    // Uncomment this to see the reconstructed solution!
+    /*
+    printf("%d: ", targets[i]);
     // If there's a solution, print it
     if (solutionExists) {
-      //printPretty(I, Q);
-      //reconstructSolution(I, Q, targets[i]);
+      // Uncomment this to see the Q table!
+      // printPretty(I, Q);
+      reconstructSolution(I, Q, targets[i]);
       
     } else {
-      //      printf("NO SOUTION EXISTS! ");
+      printf("NO SOUTION EXISTS! ");
     }
-    
-    //    printf("Time: %lu\n\n", (endTime - startTime));
     */
   }
 
   printf("Average Time: %f\n", (totalTime / NUM_TARGETS));
   printf("Total Time: %f\n", totalTime);
   
+  
+  // Freeeee
   free(I);
 
   for (int i = 0; i < numRows; i++) {
@@ -88,12 +103,19 @@ int main(int argc, char* argv[]) {
 }
 
 
+/**
+ * Gets the number of columns in the Q table.
+ * Sets the global variable "offset" which is the offset from index 0 to the
+ * number at index 0.
+ */
 int getNumColumns(int* I) {
   // Finds the highest and lowest possible values that can be reached
   int maxSum = 0, minSum = 0;
   // Used to check if the number zero is in the array
   int hasZero = 0;
-
+  
+  // Calculates the maximum and minimum possible values as well as sets a flag
+  // that helps us determine if 0 is the smallest number in the set of values
   for (int i = 0; i < numRows; i++) {
     if (I[i] < 0) {
       minSum += I[i];
@@ -140,6 +162,10 @@ int getNumColumns(int* I) {
   return (-1 * minSum) + maxSum + hasZero;
 }
 
+
+/**
+ * Zeros out the Q Matrix
+ */
 void clearQMatrix(int** Q) {
   // row is shared by the outer loop. col is shared by the inner loop.
   // but each outer loop has it's own col
@@ -157,14 +183,10 @@ void clearQMatrix(int** Q) {
   }
 }
 
-void printQ(int** Q) {
-  for (int row = 0; row < numRows; row++) {
-    for (int col = 0; col < numCols; col++) {
-      printf("Q[%d][%d] = %d\n", row, col, Q[row][col]);
-    }
-  }
-}
 
+/**
+ * Prints the Q table like a table with the columns and rows labeled
+ */
 void printPretty(int* I, int** Q) {
   printf("    ");
   // Prints out the column header
@@ -186,6 +208,11 @@ void printPretty(int* I, int** Q) {
   printf("\n");
 }
 
+
+/**
+ * Returns true if a subset of I sums to the target value
+ * Returns false otherwise
+ */
 int findSolution(int* I, int** Q, int target) {
 
   // If the target is less than the lowest possible value or higher
@@ -235,11 +262,12 @@ int findSolution(int* I, int** Q, int target) {
         // the number that we are looking for, return true
         if (newValidSumIndex + offset == target) {
           targetFound = 1;
-          // return 1;
         }
       }
     }
-
+    
+    // Returns true here rather than in the if statment because the if
+    // statement is parallelized
     if (targetFound) {
       return 1;
     }
@@ -251,7 +279,10 @@ int findSolution(int* I, int** Q, int target) {
   return 0;
 }
 
+
 /**
+ * Given a Q table, the set of values I, and a target, prints out the numbers
+ * in I used to reach the target value.
  * Precondition: There is guarenteed solution and a constructed Q table.
  */
 void reconstructSolution(int* I, int** Q, int target) {
@@ -285,7 +316,6 @@ void reconstructSolution(int* I, int** Q, int target) {
       targetCol -= I[row];
       sum += I[row];
       row--;
-      //      printf("sum = %d, target = %d\n", sum, target);
       
     // while we're not out of bounds and the row has a 1 in it
     } while (sum != target && row >= 0 && targetCol >= 0 && Q[row][targetCol]);
@@ -295,18 +325,13 @@ void reconstructSolution(int* I, int** Q, int target) {
 }
 
 
-
-
-
-
-
-
-
-
-
-
 /* File IO Functions */
 
+/**
+ * Reads the set of numbers I from a file. The first line of the file is the
+ * number of values in the file.
+ * Sets the value of the global variable numRows
+ */
 int* readSet(char *filename) {
   FILE* fp = fopen(filename, "r");
   
@@ -327,6 +352,11 @@ int* readSet(char *filename) {
   return I;
 }
 
+/**
+ * Reads the list of target values used to see if a subset of I sums
+ * to the target values.
+ * There is Always 30 target values in each file
+ */
 int* readTargets(char *filename) {
   FILE* fp = fopen(filename, "r");
 
